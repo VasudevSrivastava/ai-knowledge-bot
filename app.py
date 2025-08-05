@@ -18,8 +18,6 @@ else:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
-
-
 st.set_page_config(page_title="AI Knowledge Bot", page_icon="🤖")
 
 st.title("📄 AI Knowledge Bot")
@@ -56,6 +54,8 @@ def split_text(text):
         chunk_overlap=50
     )
     return splitter.split_text(text)
+
+pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
 index_name = "knowledge-bot"
 

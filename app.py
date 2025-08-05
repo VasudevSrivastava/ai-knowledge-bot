@@ -18,12 +18,38 @@ else:
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
+index_name = "knowledge-bot"
+
+pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
+
+if not pc.has_index(index_name):
+
+    pc.create_index(
+        name=index_name,
+        vector_type="dense",
+        dimension=384,
+        metric="cosine",
+        spec=ServerlessSpec(
+            cloud="aws",
+            region="us-east-1"
+        ),
+        deletion_protection="disabled",
+        tags={
+            "environment": "development"
+        }
+    )
+
+index = pc.Index(index_name)
+index.delete(delete_all=True)
+
 st.set_page_config(page_title="AI Knowledge Bot", page_icon="🤖")
 
 st.title("📄 AI Knowledge Bot")
 st.write("Upload a PDF and ask questions about its content.")
 
-uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+uploaded_file = st.file_uploader("Choose a PDF file", type="pdf", size_limit=10 * 1024 * 1024)  # 10 MB limit
+
+raw_text = ""
 
 if uploaded_file:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
@@ -55,27 +81,8 @@ def split_text(text):
     )
     return splitter.split_text(text)
 
-pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
-index_name = "knowledge-bot"
 
-if not pc.has_index(index_name):
-    pc.create_index(
-        name=index_name,
-        vector_type="dense",
-        dimension=384,
-        metric="cosine",
-        spec=ServerlessSpec(
-            cloud="aws",
-            region="us-east-1"
-        ),
-        deletion_protection="disabled",
-        tags={
-            "environment": "development"
-        }
-    )
-
-index = pc.Index(index_name)
 
 if st.button("Process Document"):
     chunks = split_text(raw_text)
@@ -104,14 +111,19 @@ st.subheader("Ask a Question")
 
 query = st.text_input("Enter your question:")
 if st.button("Get Answer") and query:
-    query_vector = embed_model.encode([query])[0]
+    if not uploaded_file:
+        st.error("Please upload a PDF file first.")
+        st.stop()
+    else:
+        st.write("Processing your question...")
+        query_vector = embed_model.encode([query])[0]
 
-    result = index.query(vector=query_vector.tolist(), top_k=5, include_metadata=True)
-    retrieved_texts = [match['metadata']['text'] for match in result['matches']]
+        result = index.query(vector=query_vector.tolist(), top_k=5, include_metadata=True)
+        retrieved_texts = [match['metadata']['text'] for match in result['matches']]
 
-    context = "\n\n".join(retrieved_texts)
+        context = "\n\n".join(retrieved_texts)
 
-    prompt = f"""Answer the following question using only the context below.
+        prompt = f"""Answer the following question using only the context below.
 
 Context:
 {context}

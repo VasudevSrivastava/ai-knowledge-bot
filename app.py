@@ -40,7 +40,8 @@ if not pc.has_index(index_name):
     )
 
 index = pc.Index(index_name)
-index.delete(delete_all=True)
+
+index.delete(delete_all=True, namespace="__default__")
 
 st.set_page_config(page_title="AI Knowledge Bot", page_icon="🤖")
 

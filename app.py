@@ -7,8 +7,18 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import ServerlessSpec
 import os
-from dotenv import load_dotenv
-load_dotenv()
+
+if "PINECONE_API_KEY" in st.secrets:
+    PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
+    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+else:
+    from dotenv import load_dotenv
+    load_dotenv()
+    PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+
+
 
 st.set_page_config(page_title="AI Knowledge Bot", page_icon="🤖")
 
@@ -46,9 +56,6 @@ def split_text(text):
         chunk_overlap=50
     )
     return splitter.split_text(text)
-
-
-pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
 index_name = "knowledge-bot"
 
@@ -120,7 +127,7 @@ Answer:"""
         contents=prompt
     )
 
-    st.markdown("### 🤖 Gemini Answer:")
+    st.markdown("### 🤖 Answer:")
     st.write(response.text)
 
 

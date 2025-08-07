@@ -39,11 +39,6 @@ if not pc.has_index(index_name):
         }
     )
 
-host = pc.describe_index(name="knowledge-bot")['host']
-index = pc.Index(host=host)
-
-if index.describe_index_stats()['total_vector_count'] > 0:
-  index.delete(delete_all=True)
 
 st.set_page_config(page_title="AI Knowledge Bot", page_icon="🤖")
 
@@ -162,3 +157,6 @@ Answer:"""
     st.write(response.text)
 
 
+
+
+#concurret access by multiple users

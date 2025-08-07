@@ -1,6 +1,6 @@
 import tempfile
 from google import genai
-import fitz  # PyMuPDF
+import pymupdf  # PyMuPDF
 import streamlit as st
 from sentence_transformers import SentenceTransformer, util
 from langchain.text_splitter import RecursiveCharacterTextSplitter  
@@ -8,10 +8,10 @@ from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import ServerlessSpec
 import os
 
-if "PINECONE_API_KEY" in st.secrets:
+try:
     PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-else:
+except Exception as e:
     from dotenv import load_dotenv
     load_dotenv()
     PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
@@ -39,16 +39,27 @@ if not pc.has_index(index_name):
         }
     )
 
-index = pc.Index(index_name)
+host = pc.describe_index(name="knowledge-bot")['host']
+index = pc.Index(host=host)
 
-index.delete(delete_all=True, namespace="__default__")
+if index.describe_index_stats()['total_vector_count'] > 0:
+  index.delete(delete_all=True)
 
 st.set_page_config(page_title="AI Knowledge Bot", page_icon="🤖")
 
 st.title("📄 AI Knowledge Bot")
 st.write("Upload a PDF and ask questions about its content.")
 
-uploaded_file = st.file_uploader("Choose a PDF file", type="pdf", size_limit=10 * 1024 * 1024)  # 10 MB limit
+uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")  # 10 MB limit
+
+if uploaded_file is not None:
+    file_size = uploaded_file.size  # in bytes
+    max_size = 10 * 1024 * 1024  # 10 MB
+
+    if file_size > max_size:
+        st.error("File size exceeds 10 MB limit.")
+    else:
+        st.success("File accepted!")
 
 raw_text = ""
 
@@ -58,7 +69,7 @@ if uploaded_file:
         file_path = tmp_file.name
 
     def load_pdf(file_path):
-        doc = fitz.open(file_path)
+        doc = pymupdf.open(file_path)
         text = ""
         for page in doc:
             text += page.get_text()
@@ -86,6 +97,12 @@ def split_text(text):
 
 
 if st.button("Process Document"):
+    if not uploaded_file:
+        st.error("Please upload a PDF file first.")
+        st.stop()
+    if not raw_text:
+        st.error("Failed to extract text from the PDF.")
+        st.stop()
     chunks = split_text(raw_text)
 
     embeddings = embed_model.encode(chunks, show_progress_bar=True)
@@ -97,6 +114,7 @@ if st.button("Process Document"):
         vectors.append((vector_id, vector.tolist(), metadata))
 
     index.upsert(vectors=vectors)
+    print(vectors)
     st.success("Data stored in Pinecone!")
 
 
